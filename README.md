@@ -9,6 +9,6 @@ includes code to prepare climate data for energy balance models on a debris-cove
 
 >> 2 - TSStatistics.R - basic statistics of time series (R2, RMSE, MBE)
 
->> 3 -diuCyc.R - dirunal cycle of variable
+>> 3 - diuCyc.R - diurnal cycle of variable
 
 Jakob F Steiner| PhD candidate | Faculty of Geosciences | Universiteit Utrecht | Princetonlaan 8a, 3584 CB Utrecht | Vening Meinesz building, room 4.30 | P.O. Box 80.115, 3508 TC Utrecht | j.f.steiner@uu.nl | www.uu.nl/staff/jfsteiner | www.mountainhydrology.org 
