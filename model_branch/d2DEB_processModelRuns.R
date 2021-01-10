@@ -122,6 +122,7 @@ sapply(file.sources,source,.GlobalEnv)
 source("F:\\PHD\\Research\\EB_DCG\\DistributedEB\\Code\\subCodes\\EBModCore.R")
 source("F:\\PhD\\BasicCode\\timeseriesAnalysis\\mOm.R")
 source("F:\\PhD\\BasicCode\\timeseriesAnalysis\\TSaggregate.R")
+source("F:\\PhD\\BasicCode\\timeseriesAnalysis\\mOmdTI.R")
 # ========================
 #  % PARAMETERS/VARIABLES (may change across sites; EDIT ACCORDING TO FIELDSITE)
 # ========================
@@ -865,6 +866,7 @@ nMC <- paramSize
 
 modmelt_matrix <- matrix(NA,nrow=50, ncol=1)
 tothourlymelt <- matrix(NA,nrow = length(EBCoreInput$T_a),ncol=length(ModelRunSeries))
+tothourlymelt_fixedkd <- tothourlymelt
 actualTa <- matrix(NA,nrow = length(EBCoreInput$T_a),ncol=length(ModelRunSeries))
 actualSW <- matrix(NA,nrow = length(EBCoreInput$SWin),ncol=length(ModelRunSeries))
 vf_sky_actual[ModelRunSeries][which(is.na(vf_sky_actual[ModelRunSeries]))] <-1
@@ -893,6 +895,7 @@ for(i in 1:length(ModelRunSeries)){
 
   # Data for the TI model
   tothourlymelt[,i] <- meltruns[,bestfit+1]
+  tothourlymelt_fixedkd[,i] <- meltruns[,which.min(abs(k_wet_sample-median(k_wet_sample)))+1]
   actualTa[,i] <- LR_TAIR_on * (DEM_model[ModelRunSeries[i]] - AWSelev) + EBCoreInput$T_a
   actualSW[,i] <- SW_orig * vf_sky_actual[ModelRunSeries[i]]
   }
@@ -1019,6 +1022,7 @@ for(k in 1:length(tothourlymelt[,1])){
 }
 
 tothourlymelt[,which(tothourlymelt[3769,]==0)] <- NA
+tothourlymelt_fixedkd[,which(tothourlymelt_fixedkd[3769,]==0)] <- NA
 sort(abs(debThick[ModelRunSeries]-thickQuantiles[2]),descending = T)
 
 thinDeb <- which(!is.na(match(abs(debThick[ModelRunSeries]-thickQuantiles[2]),sort(abs(debThick[ModelRunSeries]-thickQuantiles[2]))[1:10])))
@@ -1055,7 +1059,7 @@ plot(timXAxis,EBCoreInput$LWin,xaxt='n',col=brewer.pal(3, 'Greys')[3],type='l',l
 par(new = TRUE)
 plot(timXAxis,permelt_hig*100*24,xaxt='n',type='l',ylim=c(0,1.8),col=brewer.pal(3, 'Blues')[2],lwd=1.5,yaxt='n',ylab='')
 axis(side=2,at = seq(0,1.8,0.1),labels=seq(0,1.8,0.1), col=brewer.pal(3, 'Blues')[3],col.axis=brewer.pal(3, 'Blues')[3])
-mtext(text=expression('melt [cm '~ d^{-1}~ ']'), side=2,line=3, col=brewer.pal(3, 'Blues')[3],cex=1.2)
+mtext(text=expression('melt [cm w.e.'~ d^{-1}~ ']'), side=2,line=3, col=brewer.pal(3, 'Blues')[3],cex=1.2)
 points(timXAxis,permelt_mid*100*24,type='l',col=brewer.pal(3, 'Blues')[3],lwd=1.5)
 points(timXAxis,permelt_low*100*24,type='l',col=brewer.pal(3, 'Blues')[2],lwd=0.5)
 dev.off()
@@ -1085,11 +1089,10 @@ plot(timXAxis[focalTime],EBCoreInput$LWin[focalTime],xaxt='n',col=brewer.pal(3, 
 par(new = TRUE)
 plot(timXAxis[focalTime],permelt_hig[focalTime]*100*24,xaxt='n',type='l',ylim=c(0,1.8),col=brewer.pal(3, 'Blues')[2],lwd=1.5,yaxt='n',ylab='')
 axis(side=2,at = seq(0,1.8,0.1),labels=seq(0,1.8,0.1), col=brewer.pal(3, 'Blues')[3],col.axis=brewer.pal(3, 'Blues')[3])
-mtext(text=expression('melt [cm '~ d^{-1}~ ']'), side=2,line=3, col=brewer.pal(3, 'Blues')[3],cex=1.2)
+mtext(text=expression('melt [cm w.e.'~ d^{-1}~ ']'), side=2,line=3, col=brewer.pal(3, 'Blues')[3],cex=1.2)
 
 points(timXAxis[focalTime],permelt_mid[focalTime]*100*24,type='l',col=brewer.pal(3, 'Blues')[3],lwd=1.5)
 points(timXAxis[focalTime],permelt_low[focalTime]*100*24,type='l',col=brewer.pal(3, 'Blues')[2],lwd=0.5)
-#legend('bottomright',c('melt ~ 45 cm', 'melt ~ 115 cm','melt ~ 163 cm','air temperature', 'shortwave radiation'),lty=1,col=c(brewer.pal(3, 'Blues')[3],brewer.pal(3, 'Blues')[2],brewer.pal(3, 'Blues')[3],brewer.pal(3, 'Reds')[3],brewer.pal(3, 'Greys')[3]),bty='n')
 dev.off()
 
 diumeltlow <- diuCyc(percmelt[,2]*100*24,EBCoreInput$timeline_str)
@@ -1121,195 +1124,330 @@ dev.off()
 
 #########
 
-# TI model setup
-timelag <- 2
-TAir_all <- vector()
-SW_all <- vector()
-melt_all <- tothourlymelt
-depth_all <- debThick[]
-
-for(rF in 1:length(ModelRunSeries)){
-  TI_TAirSeries <- c(seq(1,timelag,1)*0+visDataArray[[rF]]$V5[1:timelag]-273.15,visDataArray[[rF]]$V5-273.15)[1:length(visDataArray[[rF]]$V5)] # shifted temperature time series
-  TAir_all <- c(TAir_all,TI_TAirSeries)
-  ETI_SWinSeries <- c(seq(1,timelag,1)*0+visDataArray[[rF]]$V6[1:timelag],visDataArray[[rF]]$V6)[1:length(visDataArray[[rF]]$V6)]
-  SW_all <- c(SW_all,ETI_SWinSeries)
-  
-  melt_all <- c(melt_all,visDataArray[[rF]]$V4)
-  actualDepth <- mean(d_sample[visDataArray[[rF]]$V13],na.rm=T)
-  depth_all <- c(depth_all,actualDepth + visDataArray[[rF]]$V4*0)
-}
-
-# melt runs to exclude because best run is zero melt over the whole period.
-which(tothourlymelt[3769,]==0)
-
 # get lag between T_air/SW and melt by finding peaks for each day
-lagMatrix <- matrix(NA,nrow=dim(tothourlymelt)[2],ncol=3)
+lagMatrix <- matrix(NA,nrow=dim(tothourlymelt)[2],ncol=5)
 for(lagF in 1:dim(tothourlymelt)[2]){
 if(!is.na(mean(tothourlymelt[,lagF],na.rm=T))){
-  xyccf <- ccf(tothourlymelt[,lagF],actualTa[,lagF],lag.max=50)
+  xyccf <- ccf(tothourlymelt[,lagF],actualTa[,lagF],lag.max=37)
 
   lag_Ta <- which(xyccf$acf[xyccf$lag>0]==max(xyccf$acf[xyccf$lag>0]))
-
-  xyccf <- ccf(tothourlymelt[,lagF],actualSW[,lagF],lag.max=50)
+  cor_Ta <- max(xyccf$acf[xyccf$lag>0])
+  
+  xyccf <- ccf(tothourlymelt[,lagF],actualSW[,lagF],lag.max=37)
   
   lag_SW <- which(xyccf$acf[xyccf$lag>0]==max(xyccf$acf[xyccf$lag>0]))
+  cor_SW <- max(xyccf$acf[xyccf$lag>0])
   
 lagMatrix[lagF,1] <- debThick[ModelRunSeries[lagF]]
 lagMatrix[lagF,2] <- lag_Ta
 lagMatrix[lagF,3] <- lag_SW
+lagMatrix[lagF,4] <- cor_Ta
+lagMatrix[lagF,5] <- cor_SW
 }
-  else{lagMatrix[lagF,] <- c(NA,NA,NA)}
+  else{lagMatrix[lagF,] <- c(NA,NA,NA,NA,NA)}
 }
 
 lagMatrix[which(tothourlymelt[3769,]==0),] <- NA
-(a * debThick^b) * T_air [t - c*debThick]
 
-f <- function(x) sum((melt_all - x[1] * depth_all^x[2] * TAir_all*depth_all)^2,na.rm=T) / sum((melt_all - mean(x[1] * depth_all^x[2] * TAir_all*depth_all,na.rm=T))^2,na.rm=T)
-DTI_p <- optim(c(0.001,0.1),f)
+lagMatrix[lagMatrix[,2]>=37,2] <- NA
+lagMatrix[lagMatrix[,3]>=37,3] <- NA
+# regression through lag points
+lagMatrixplot <- lagMatrix
+lagMatrixplot[lagMatrixplot[,4]<0.0] <-NA
+lagMatrixplot[lagMatrixplot[,5]<0.0] <-NA
+lagMatrixplot[lagMatrixplot[,3]<=1] <- NA
 
-f <- function(x) sum((melt_all - (x[1] * debThMod^x[2] * TI_TAirSeries*debThMod + x[3] * (1 - EBCoreInput$albedo_d) * ETI_SWinSeries))^2,na.rm=T) / sum((meltMod - mean(x[1] * debThMod^x[2] * TI_TAirSeries*debThMod + x[3] * (1 - EBCoreInput$albedo_d) * ETI_SWinSeries))^2,na.rm=T)
-DETI_p <- optim(c(0,0,0),f)
-
-
-DTI_melt <- DTI_p$par[1] * depth_all^DTI_p$par[2] * TAir_all*depth_all
-DTI_melt[DTI_melt<=0] <- 0
-
-DETI_melt <- DETI_p$par[1] * depth_all^DETI_p$par[2] * TI_TAirSeries * depth_all + DETI_p$par[3] * (1 - EBCoreInput$albedo_d[1]) * SW_all
-DETI_melt[DETI_melt<=0] <- 0
-
-plot(cumsum(melt_all))
-points(cumsum(DTI_melt),col='red')
-points(cumsum(DETI_melt),col='green')
-
-plot(DTI_melt[2000:2500]*1000,type='l',ylim=c(0,4),ylab = 'melt [mm h-1]')
-points(melt_all[2000:2500]*1000,type='l',col='red')
-#points(DETI_melt[2000:2500]*1000,type='l',col='green')
-
-TI_daily <- TSaggregate(DTI_melt,rep(EBCoreInput$timeline_str,234),3600,2013,'sum')
-EB_daily <- TSaggregate(melt_all,rep(EBCoreInput$timeline_str,234),3600,2013,'sum')
-
-TI_diu <- diuCyc(TI_melt*1000,EBCoreInput$timeline_str)
-EB_diu <- diuCyc(out[[2]]$melt*1000,EBCoreInput$timeline_str)
-
-
-plot(TI_daily[,2],EB_daily[,2], xlab ='TI model daily [mm d-1]',ylab ='EB model daily [mm d-1]')
-abline(0,1)
-
-plot(TI_diu[,2],type='l',ylim=c(0,2),ylab = 'melt [mm h-1]')
-points(EB_diu[,2],type='l',col='red')
-
-error.bar <- function(x, y, upper, lower=upper, length=0.1,...){
-  arrows(x,y+upper, x, y-lower, angle=90, code=3, length=length, ...)
+uniqueDepth_T <- vector()
+uniqueDepth_S <- vector()
+for(i in 1:36){
+  uniqueDepth_T[i] <- median(lagMatrixplot[lagMatrixplot[, 2]==i, 1],na.rm=T)
+  uniqueDepth_S[i] <- median(lagMatrixplot[lagMatrixplot[, 3]==i, 1],na.rm=T)
 }
 
-png(file=path_figs&'\\ReconstructedThickness.png', res = 160,width=1800,height=600)
-par(mar=c(4,5,2,2),cex.lab=1.5,cex.axis=1.5)
-#par(mfrow=c(3,1))
-layout(matrix(c(1,2,3), nrow = 1, ncol = 3, byrow = FALSE))
-plot(d_raster,zlim=c(0,2.5),main='measured thickness [m]')
-plot(glac_mask,add=T)
+uniqueDepth_T[abs(uniqueDepth_T)>100] <- NA
+uniqueDepth_S[abs(uniqueDepth_S)>100] <- NA
+regrsT <- lm(c(uniqueDepth_T)~seq(1,36,1))
+regrsS <- lm(c(uniqueDepth_S)~seq(1,36,1))
+
+lag_T <- 1/coefficients(lm(uniqueDepth_T~seq(1,36,1)))[2]
+lag_S <- 1/coefficients(lm(uniqueDepth_S~seq(1,36,1)))[2]
+
+png(file=path_figs&'\\melt_lag.png', res = 160,width=1200,height=500)
+par(mar=c(4,7,2,5),cex.lab=1.2,cex.axis=1.2)
+layout(matrix(c(1,1), nrow = 1, ncol = 1, byrow = FALSE))
+plot(lagMatrix[,2],lagMatrix[,1],col=brewer.pal(3, 'Greys')[1],xlim=c(0,36),ylim=c(0,2.5), ylab = "debris thickness [m]", xlab = "lag [h]")
+points(lagMatrix[,3],lagMatrix[,1],col=brewer.pal(3, 'Greys')[2])
+points(lagMatrixplot[,2],lagMatrixplot[,1],col=brewer.pal(3, 'Reds')[1])
+points(lagMatrixplot[,3],lagMatrixplot[,1],col=brewer.pal(3, 'Reds')[2])
+abline(regrsT)
+abline(regrsS)
 grid(NULL,NULL)
-plot(d_raster_new,zlim=c(0,2.5),legend=FALSE,main='modelled thickness [m]')
-plot(glac_mask,add=T)
-grid(NULL,NULL)
-boxplot(d_raster_new[]-d_raster[],ylim=c(-0.5,0.5),ylab =c('error [m]'),main = 'offset')
-myjitter<-jitter(rep(1, length(which(!is.na(d_raster_new[]-d_raster[])))), amount=0.2)
-points(myjitter, (d_raster_new[]-d_raster[])[which(!is.na(d_raster_new[]-d_raster[]))], pch=1, col=alpha('black',0.8) )
+legend('topleft',c('air temperature', 'solar radiation'),pch=1,col=c(brewer.pal(3, 'Reds')[1],brewer.pal(3, 'Reds')[2]),bty='n')
+dev.off()
+
+png(file=path_figs&'\\acf_temp.png', res = 160,width=1200,height=500)
+par(mar=c(4,7,2,5),cex.lab=1.2,cex.axis=1.2)
+layout(matrix(c(1,1), nrow = 1, ncol = 1, byrow = FALSE))
+xyccf <- ccf(tothourlymelt[,200],actualTa[,200],lag.max=37,xlab='lag',ylab = 'CCF',main='',xlim=c(0,36),ylim = c(-0.6,0.8),col=brewer.pal(3, 'Reds')[1],lwd=3)
 grid(NULL,NULL)
 dev.off()
 
-dThickordered <- which(!is.na(debThick[]))[1:length(out)]
-png(file=path_figs&'\\ModelPerformance_indivPixel.png', res = 160,width=3600,height=1800)
-ModelRunDays <- as.numeric(strftime(EBend, format = "%j"))-as.numeric(strftime(EBstart, format = "%j"))
-par(mar=c(4,5,2,2),cex.lab=1.2,cex.axis=1.2)
-#par(mfrow=c(3,1))
-layout(matrix(c(1,2,3,4), nrow = 2, ncol = 2, byrow = FALSE))
-resStat <- boxplot(out2[order(debThick[dThickordered])],ylim=c(0,4),xlab = 'pixels @ '&ModRes&'m resolution',ylab = 'mass loss [m]')
-kl <- 1
-for(i in order(debThick[dThickordered])){
-  myjitter<-jitter(rep(kl, length(out2[order(dThickordered)][[i]])), amount=0.2)
-  points(myjitter, out2[[i]], pch=20, col=alpha('black',0.2) )
-  kl <- kl + 1
+png(file=path_figs&'\\acf_rad.png', res = 160,width=1200,height=500)
+par(mar=c(4,7,2,5),cex.lab=1.2,cex.axis=1.2)
+layout(matrix(c(1,1), nrow = 1, ncol = 1, byrow = FALSE))
+xyccf <- ccf(tothourlymelt[,200],actualSW[,200],lag.max=37,xlab='lag',ylab = 'CCF',main='',xlim=c(0,36),ylim = c(-0.6,0.8),col=brewer.pal(3, 'Reds')[2],lwd=3)
+grid(NULL,NULL)
+dev.off()
+
+# Evaluation of Equation form of the index model
+equ_TI <- function(deb, a, n)   numericDeriv(quote(a*(deb)^n),c("a", "n"), parent.frame())
+
+debris_thick <- data.frame(stage=c(debThick[ModelRunSeries])) # debris thickness [m]
+TF <- c(colMeans(tothourlymelt_fixedkd*1000)/colMeans(actualTa)) # TF factor
+
+TF2 <- TF[which(!is.na(TF))]
+debris_thick2 <- data.frame(deb = debris_thick[which(!is.na(TF)),1])
+
+# Fitting the power law
+# Note that the start argument requires a list with initial (rough!) estimates of the coefficients to be estimated
+power.nls<-nls(TF2~equ_TI(deb,a, n),  data = debris_thick2,
+               start=list(a=0.01,  n=-0.06),
+               trace = T,
+               lower=list(a = -2,  n = -2),
+               upper=list(a = 2,  n=2),
+               algorithm="port",
+               control=nls.control(maxiter = 100))
+
+TF1_p<-coef(power.nls)["a"]
+TF2_p<-coef(power.nls)["n"]
+
+
+
+plot(debris_thick[which(!is.na(TF)),1],TF2,col='grey')
+points(seq(0,2,0.1),TF1_p*seq(0,2,0.1)^TF2_p,col='red')
+
+# Evaluation of Equation form of the index model
+equ_ETI <- function(deb, a, n)   numericDeriv(quote(a*exp(deb*n)),c("a", "n"), parent.frame())
+
+SRF <- c((colMeans(tothourlymelt_fixedkd*1000))/colMeans(actualSW *(1-0.13))) # SRF factor
+
+SRF2 <- SRF[which(!is.na(SRF))]
+debris_thick2 <- data.frame(deb = debris_thick[which(!is.na(SRF)),1])
+
+# Fitting the power law
+# Note that the start argument requires a list with initial (rough!) estimates of the coefficients to be estimated
+power.nls<-nls(SRF2~equ_TI(deb,a, n),  data = debris_thick2,
+               start=list(a=0.01,  n=-0.06),
+               trace = T,
+               lower=list(a = -10,  n = -10),
+               upper=list(a = 10,  n=10),
+               algorithm="port",
+               control=nls.control(maxiter = 100))
+
+SRF1_p<-coef(power.nls)["a"]
+SRF2_p<-coef(power.nls)["n"]
+
+plot(debris_thick[which(!is.na(TF)),1],SRF2,col='grey')
+points(seq(0,2,0.1),SRF1_p*exp(seq(0,2,0.1)*SRF2_p),col='red')
+points(seq(0,2,0.1),SRF1_p*exp(seq(0,2,0.1)*SRF2_p),col='red')
+
+source("F:\\PhD\\BasicCode\\timeseriesAnalysis\\mOmdTI.R")
+source("F:\\PhD\\BasicCode\\timeseriesAnalysis\\TSStatistics.R")
+params_TI <- matrix(NA,nrow=length(ModelRunSeries),ncol=5)
+params_ETI <- matrix(NA,nrow=length(ModelRunSeries),ncol=7)
+
+obs_matrix <- matrix(NA,nrow=length(ModelRunSeries),ncol=24)
+mod_ETI_matrix <- matrix(NA,nrow=length(ModelRunSeries),ncol=24)
+mod_TI_matrix <- matrix(NA,nrow=length(ModelRunSeries),ncol=24)
+
+lag_T2<- lag_T
+lag_S2<- lag_S
+lag_S <- lag_T
+
+paramsTI_step <- matrix(NA,nrow<-6,ncol<-7)
+paramsETI_step <- matrix(NA,nrow<-6,ncol<-9)
+thicksteps <- c(0.1,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,1.25,1.5,2,2.5)
+thicksteps <- c(0.25,0.5,0.75,1,1.25,1.5,2,2.5)
+tothourlymelt2 <- tothourlymelt
+tothourlymelt <- tothourlymelt/0.916
+tothourlymelt_fixedkd2 <- tothourlymelt_fixedkd
+tothourlymelt_fixedkd <- tothourlymelt_fixedkd/0.916
+
+for(k in 1:6){
+  
+  longTA <- vector()
+  longSW <- vector()
+  longdeb <- vector()
+  longmelt <- vector()
+  
+  deb_sub <- which(debThick[ModelRunSeries]<=thicksteps[k+1]&debThick[ModelRunSeries]>thicksteps[k])
+  for(inP in 1:length(deb_sub)){
+    if(!is.na(tothourlymelt_fixedkd[1,deb_sub[inP]])){
+    melt_all <- tothourlymelt[,deb_sub[inP]]*1000
+    melt_all_fixedkd <- tothourlymelt_fixedkd[,deb_sub[inP]]*1000
+    melt_all <- melt_all_fixedkd
+    depth_all <- debThick[ModelRunSeries[deb_sub[inP]]]
+    TAir_all <- actualTa[,deb_sub[inP]] - 273.15
+    SW_all <- actualSW[,deb_sub[inP]]
+    timVec <- EBCoreInput$timeline_str[1:(length(melt_all)-round(depth_all*lag_T)+1)]
+
+
+longTA <- c(longTA,TAir_all[1:(length(melt_all)-round(depth_all*lag_T)+1)])
+longSW <- c(longSW,SW_all[1:(length(melt_all)-round(depth_all*lag_T)+1)])
+longdeb <- c(longdeb,depth_all+TAir_all[1:(length(melt_all)-round(depth_all*lag_T)+1)]*0)
+longmelt <- c(longmelt,melt_all[round(depth_all*lag_T):length(melt_all)])}
+  }
+  optm <- mOmdTI(NULL,longmelt,longTA,longSW,longdeb,lag_T,NULL,'longTS_TI')
+  
+  paramsTI_step[k,1:4] <- c(thicksteps[k],length(deb_sub),optm$par[1:2])
+  
+  paramsTI_step[k,5:7] <- TSStatistics(longmelt,optm$par[1] * longdeb^optm$par[2] * longTA)[c(2,3,5)]
+  
+  optm <- mOmdTI(NULL,longmelt,longTA,longSW,longdeb,lag_T,NULL,'longTS_ETI')
+  
+  paramsETI_step[k,1:6] <- c(thicksteps[k],length(deb_sub),optm$par[1:4])
+  
+  paramsETI_step[k,7:9] <- TSStatistics(longmelt,optm$par[1] * longdeb^optm$par[2] * longTA + optm$par[3]*exp(depth_all*optm$par[4]) * longSW* (1-0.13))[c(2,3,5)]
+  
+  
+    }
+
+longTA <- vector()
+longSW <- vector()
+longdeb <- vector()
+longmelt <- vector()
+
+for(inP in 1:length(ModelRunSeries)){
+  if(!is.na(tothourlymelt[1,inP])){
+    melt_all <- tothourlymelt[,inP]*1000
+    melt_all_fixedkd <- tothourlymelt_fixedkd[,inP]*1000
+    melt_all <- melt_all_fixedkd
+    depth_all <- debThick[ModelRunSeries[inP]]
+    TAir_all <- actualTa[,inP] - 273.15
+    SW_all <- actualSW[,inP]
+    timVec <- EBCoreInput$timeline_str[1:(length(melt_all)-round(depth_all*lag_T)+1)]
+    
+    
+    longTA <- c(longTA,TAir_all[1:(length(melt_all)-round(depth_all*lag_T)+1)])
+    longSW <- c(longSW,SW_all[1:(length(melt_all)-round(depth_all*lag_T)+1)])
+    longdeb <- c(longdeb,depth_all+TAir_all[1:(length(melt_all)-round(depth_all*lag_T)+1)]*0)
+    longmelt <- c(longmelt,melt_all[round(depth_all*lag_T):length(melt_all)])}
 }
-points(dhdt_res[dThickordered][order(debThick[dThickordered])],col='red',pch=2)
-grid(NULL,NULL)
-legend('bottomleft',c('mod','obs'),pch=c(NA,2),fill = c(NA,NA),border=c(gray.colors(1),NA),col=c('black','red'),bty='n')
-#bplot <- barplot(debThick[dThickordered][order(debThick[dThickordered])],axisnames=T,space = 0, axes = FALSE,col="gray",xlab = 'pixels @ '&ModRes&'m resolution',ylab = 'thickness [m]')
-bplot <- barplot(debOpt_mu,axisnames=T,space = 0, axes = FALSE,col="gray",xlab = 'pixels @ '&ModRes&'m resolution',ylab = 'thickness [m]',ylim=c(0,2))
-error.bar(bplot,debOpt_mu, debOpt_sd)
-at_tick <- seq_len(length(out) + 1)
-axis(side = 1, at = at_tick - 1, labels = FALSE)
-axis(side=1, at = seq_along(seq(1,length(out),1)) - 0.5, tick = FALSE,labels = seq(1,length(out),1))
-axis(side = 2, at = seq(0,5,0.2), labels = seq(0,5,0.2))
-box()
-grid(NULL,NULL)
-plot(debThick[dThickordered][order(debThick[dThickordered])],(resStat$stats[3,]-dhdt_res[dThickordered][order(debThick[dThickordered])]) / ModelRunDays * 100,ylab = 'error [cm/day]',xlab = 'thickness [m]')
-points(debThick[dThickordered][order(debThick[dThickordered])],(optdhdt[order(debThick[dThickordered])]-dhdt_res[dThickordered][order(debThick[dThickordered])]) / ModelRunDays * 100,ylab = 'error [cm/day]',xlab = 'thickness [m]',col='red')
+optm <- mOmdTI(NULL,longmelt,longTA,longSW,longdeb,lag_T,NULL,'longTS_TI')
 
-grid(NULL,NULL)
-plot(debThick[dThickordered][order(debThick[dThickordered])],dhdt_res[dThickordered][order(debThick[dThickordered])] / ModelRunDays * 100,ylab = 'mass loss measured [cm/day]',xlab = 'thickness [m]')
-grid(NULL,NULL)
+paramsTI <- vector(length=5)
+paramsTI[1:2] <- c(optm$par[1:2])
+
+paramsTI[3:5] <- TSStatistics(longmelt,optm$par[1] * longdeb^optm$par[2] * longTA)[c(2,3,5)]
+
+optm <- mOmdTI(NULL,longmelt,longTA,longSW,longdeb,lag_T,NULL,'longTS_ETI')
+paramsETI <- vector(length=7)
+paramsETI[1:4] <- c(optm$par[1:4])
+paramsETI[5:7] <- TSStatistics(longmelt,optm$par[1] * longdeb^optm$par[2] * longTA + optm$par[3]*exp(depth_all*optm$par[4]) * longSW* (1-0.13))[c(2,3,5)]
+
+
+
+testNO <- 4000
+plot(tothourlymelt[510:698,testNO]*1000,type='l',ylim=c(0,2))
+points(paramsTI[1]*debThick[ModelRunSeries[testNO]]^paramsTI[2]*(actualTa[(510-round(lag_T*debThick[ModelRunSeries[testNO]])):(698-round(lag_T*debThick[ModelRunSeries[testNO]])),testNO]-273.15),type='l',col='red')
+points(paramsETI[1]*debThick[ModelRunSeries[testNO]]^paramsETI[2]*(actualTa[(510-round(lag_T*debThick[ModelRunSeries[testNO]])):(698-round(lag_T*debThick[ModelRunSeries[testNO]])),testNO]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[testNO]]*paramsETI[4]) * actualSW[(510-round(lag_S*debThick[ModelRunSeries[testNO]])):(698-round(lag_S*debThick[ModelRunSeries[testNO]])),testNO]* (1-0.13),type='l',col='green')
+
+
+# Modelled melt on all pixels
+actualTa_shift <- rbind(actualTa[1:36,],actualTa)
+modMelt <- actualTa*NA
+modMelt_cum <- actualTa*NA
+for(kn in 1:length(ModelRunSeries)){
+  TAshift <- seq(37-round(lag_T*debThick[ModelRunSeries[kn]]),dim(actualTa_shift)[1]-round(lag_T*debThick[ModelRunSeries[kn]]),1)
+
+  modMelt[,kn] <- 0.916 * (paramsTI[1]*debThick[ModelRunSeries[kn]]^paramsTI[2]*(actualTa_shift[TAshift,kn]-273.15))
+  modMelt_cum[,kn] <- 0.916 * (cumsum(paramsTI[1]*debThick[ModelRunSeries[kn]]^paramsTI[2]*(actualTa_shift[TAshift,kn]-273.15)))
+  
+}
+modMelt[modMelt<=0] <- 0
+
+TI_raster <- debThick * NA
+TI_raster[ModelRunSeries] <- modMelt_cum[3769,]/1000
+
+op <- TSStatistics(dhdt_res[],TI_raster[])
+
+# Plot melt under certain thicknesses
+
+timStart <- 1393
+timEnd <- 1584
+
+
+thick_1 <- which(debThick[ModelRunSeries]<=0.36&debThick[ModelRunSeries]>0.15)[220]
+thick_2 <- which(debThick[ModelRunSeries]<=2&debThick[ModelRunSeries]>1.8)[5]
+
+debThick[ModelRunSeries][thick_1]
+debThick[ModelRunSeries][thick_2]
+
+png(file=path_figs&'\\indexmodel_hourly.png', res = 160,width=900,height=900)
+par(mar=c(2,4,1,1),cex.lab=1,cex.axis=1)
+layout(matrix(c(1,2,3), nrow = 3, ncol = 1, byrow = T))
+
+timStart <- 457
+timEnd <- 800
+timEnd <- 680
+daterange <- EBCoreInput$timeline_str[seq(timStart,timEnd,1)]
+
+plot(daterange,tothourlymelt_fixedkd[timStart:timEnd,thick_1]*1000,type='l',lwd=1.5,ylim=c(0,1.5),yaxt='n',xaxt='n',ylab='',xlab='',col=brewer.pal(3, 'Greys')[3])
+points(daterange,paramsTI[1]*debThick[ModelRunSeries[thick_1]]^paramsTI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
+points(daterange,paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_1]]*paramsETI[4]) * actualSW[(timStart-round(lag_S*debThick[ModelRunSeries[thick_1]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_1]]),thick_1]* (1-0.13),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[3])
+
+points(daterange,tothourlymelt_fixedkd[timStart:timEnd,thick_2]*1000,type='l',lwd=1.5,ylim=c(0,1),col=brewer.pal(3, 'Greys')[3])
+points(daterange,paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
+points(daterange,paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+axis.POSIXct(1, at=seq(daterange[1], daterange[length(daterange)], by="day"),labels=format(seq(daterange[1], daterange[length(daterange)], by="day"),"%d"), format="%d")
+axis(side=2,at = seq(0,1.5,0.25),labels=seq(0,1.5,0.25), col='black',col.axis='black')
+
+mtext(text=expression('melt [mm w.e.'~ h^{-1}~ ']'), side=2,line=2, col='black',cex=1)
+abline(h=seq(0,1.5,0.25),v=seq(daterange[1], daterange[length(daterange)], by="day"),col='grey')
+
+timStart <- 37
+timEnd <- dim(tothourlymelt)[1] + 36
+actualTa_shift <- rbind(actualTa[1:36,],actualTa)
+actualSW_shift <- rbind(actualSW[1:36,],actualTa)
+daterange <- EBCoreInput$timeline_str
+
+meas_diu <- diuCyc(tothourlymelt_fixedkd[,thick_1]*1000,daterange)
+TI_diu <- diuCyc(paramsTI[1]*debThick[ModelRunSeries[thick_1]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15),daterange)
+ETI_diu <- diuCyc(paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_1]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_1]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_1]]),thick_1]* (1-0.13),daterange)
+
+plot(seq(1,24,1),meas_diu[,2],type='l',ylim=c(0,1),yaxt='n',xaxt='n',ylab='',xlab='',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
+points(seq(1,24,1),TI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
+points(seq(1,24,1),ETI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+#axis.POSIXct(1, at=seq(1, 24,1),labels=)
+
+meas_diu <- diuCyc(tothourlymelt_fixedkd[,thick_2]*1000,daterange)
+TI_diu <- diuCyc(paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15),daterange)
+ETI_diu <- diuCyc(paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13),daterange)
+
+points(seq(1,24,1),meas_diu[,2],type='l',ylim=c(0,1),yaxt='n',xaxt='n',ylab='',xlab='',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
+points(seq(1,24,1),TI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
+points(seq(1,24,1),ETI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+axis(1, at=seq(0, 23,4),labels=seq(0, 23,4))
+abline(h=seq(0,1,0.2),v=seq(0, 23,2),col='grey')
+
+axis(side=2,at = seq(0,1,0.2),labels=seq(0,1,0.2), col='black',col.axis='black')
+mtext(text=expression('melt [mm w.e.'~ h^{-1}~ ']'), side=2,line=2, col='black',cex=1)
+
+plot(daterange,cumsum(tothourlymelt_fixedkd[,thick_1]),type='l',ylim=c(0,2.250),yaxt='n',xaxt='n',ylab='',xlab='',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
+points(daterange,cumsum(paramsTI[1]*debThick[ModelRunSeries[thick_1]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15))/1000,type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
+points(daterange,cumsum(paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_1]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_1]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_1]]),thick_1]* (1-0.13))/1000,type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+
+points(daterange,cumsum(tothourlymelt_fixedkd[,thick_2]),type='l',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
+points(daterange,cumsum(paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15))/1000,type='l',lwd=2,col=brewer.pal(6, 'Blues')[5])
+points(daterange,cumsum(paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13))/1000,type='l',lwd=2,col=brewer.pal(6, 'Blues')[3])
+axis.POSIXct(1, at=seq(daterange[1], daterange[length(daterange)], by="month"),labels=format(seq(daterange[1], daterange[length(daterange)], by="month"),"%d%b"), format="%d%b")
+axis(side=2,at = seq(0,2.5,0.5),labels=seq(0,2.500,0.500), col='black',col.axis='black')
+
+mtext(text=expression('melt [m w.e.]'), side=2,line=2, col='black',cex=1)
+abline(h=seq(0,2.5,0.5),v=seq(daterange[1], daterange[length(daterange)], by="month"),col='grey')
+legend('topleft',c('EB', 'TI', 'ETI'),lty=1,lwd=1.5,col=c(brewer.pal(3, 'Greys')[3],brewer.pal(6, 'Blues')[5],brewer.pal(6, 'Blues')[3]),bty='n')
+
 dev.off()
 
-save(out, file=path_data&'//temp_ModOutput')
-load(path_data&'//temp_ModOutput')
-###########
-#Test Model Plots
-allPix <- lapply(out, max);         # Total melt after complete model period
-maxMelt <- DEM_dataframe[!is.na(DEM_dataframe[,2]),1]*0
-maxMelt <- allPix
 
-Model_Results_Raster <- DEM_model * 0
-Model_Results_Raster[!is.na(Model_Results_Raster[])] <- unlist(maxMelt)   # make raster with melt values
-
-# Load DEMs for Validation Data
-DEM_201305<-raster(path_data&'/DEMs/'&'201305_V4_DEM_20cm.tif')
-DEM_201305_dom <- aggregate(crop(DEM_201305,extent(Hdeb_ModRes)),fact = floor(res(Hdeb_ModRes)/res(DEM_201305)),median)
-DEM_201305_dom <- mask(DEM_201305_dom,Hdeb_ModRes)
-
-DEM_201310<-raster(path_data&'/DEMs/'&'201310_V4_DEM_20cm.tif')
-DEM_201310_dom <- aggregate(crop(DEM_201310,extent(Hdeb_ModRes)),fact = (res(Hdeb_ModRes)/res(DEM_201310)),median)
-DEM_201310_dom <- mask(DEM_201310_dom,Hdeb_ModRes)
-
-DEM_201405<-raster(path_data&'/DEMs/'&'201405_V6_Lirung_DEM_20cm_BilinearSnap.tif')
-DEM_201405_dom <- aggregate(crop(DEM_201405,extent(Hdeb_ModRes)),fact = (res(Hdeb_ModRes)/res(DEM_201405)),median)
-DEM_201405_dom <- resample(DEM_201405_dom,Hdeb_ModRes,'bilinear')
-DEM_201405_dom <- mask(DEM_201405_dom,Hdeb_ModRes)
-
-DEMdates <- c('05/18/2013','10/22/2013')
-DEMini <- DEM_201305_dom
-DEMend <- DEM_201310_dom
-dh <- DEMend - DEMini
-dt <- (as.numeric(as.POSIXct(DEMdates[2], format="%m/%d/%Y")) - as.numeric(as.POSIXct(DEMdates[1], format="%m/%d/%Y")))/3600/24
-#DEM_201410<-raster(path_data&'/DEMs/'&'General_DEM_model_recalculated_after_merging_chunks.tif')
-#DEM_201410_dom <- aggregate(crop(DEM_201410,extent(Hdeb_ModRes)),fact = floor(res(Hdeb_ModRes)/res(DEM_201410)),median)
-#DEM_201410_dom <- mask(DEM_201410_dom,Hdeb_ModRes)
-
-#b <- layerize(DEM_201410)
-#fact <- round(dim(r_hr)[1:2] / dim(r_lr)[1:2])
-#a <- aggregate(b, fact)
-#x <- resample(a, r_lr)
-
-d_oestrem <- c(0,5,10,15,20,25,30)
-m_oestrem <- c(4.5,3,2,1,0.8,0.6,0.5)
-approx_ostrem <- cbind(d_oestrem,m_oestrem)
-png(file=path_figs&'\\ModelPerformance.png', res = 160,width=1800,height=1800)
-par(mar=c(5,7,2,4),cex.lab=1.2,cex.axis=1.2)
-#par(mfrow=c(3,1))
-layout(matrix(c(1,2,3,4,5,6), nrow = 3, ncol = 2, byrow = TRUE))
-plot(DEMini,ylab='Latitude [m]',xlab='Longitude [m]',legend.args=list(text=expression('Elevation [m]'), side=2, font=1, line=0.3, cex=1))
-grid(nx=NULL, ny=NULL)
-plot(Hdeb_ModRes,ylab='Latitude [m]',xlab='Longitude [m]',legend.args=list(text=expression('debris thickness [m]'), side=2, font=1, line=0.3, cex=1))
-grid(nx=NULL, ny=NULL)
-plot(Hdeb_ModRes2/length(EBCoreInput$SWin)*24*1000,zlim=c(0,20),ylab='Latitude [m]',xlab='Longitude [m]',legend.args=list(text=expression('melt mod. [mm/day]'), side=2, font=1, line=0.3, cex=1.1))
-grid(nx=NULL, ny=NULL)
-plot(Hdeb_ModRes*100,Hdeb_ModRes2/length(EBCoreInput$SWin)*24*1000,xlim=c(0,100),ylim=c(0,15),ylab='melt [mm/day]',xlab='deb thickness [cm]')
-grid(nx=NULL, ny=NULL)
-points(approx_ostrem[,1],approx_ostrem[,2],col='red')
-legend('topleft',c('mod','Oestrem'),pch=c(1,1),col=c('black','red'))
-plot(dh/dt*-1000,zlim=c(0,20),ylab='Latitude [m]',xlab='Longitude [m]',legend.args=list(text=expression('dh/dt [mm/day]'), side=2, font=1, line=0.3, cex=1.1))
-grid(nx=NULL, ny=NULL)
-plot(dh/dt*-1000,Hdeb_ModRes2/length(EBCoreInput$SWin)*24*1000,xlim=c(0,20),ylim=c(0,20),ylab='model [mm/day]',xlab='observed [mm/day]')
-grid(nx=NULL, ny=NULL)
-abline(0,1)
-dev.off()
+plot(crop(dhdt_res,r3Extent)-crop(TI_raster,r3Extent),zlim=c(-0.5,0.5))
