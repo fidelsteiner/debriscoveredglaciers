@@ -957,6 +957,10 @@ writeRaster(crop(modmassloss,r3Extent),path&'\\ModelOutput\\spatialResults\\mode
 writeRaster(crop(dhdt_res2,r3Extent),path&'\\ModelOutput\\spatialResults\\measuredMassLoss2013.tif',format='GTiff',overwrite=T)
 writeRaster(crop(modmasslossfixcond,r3Extent),path&'\\ModelOutput\\spatialResults\\modelledMassLoss_fixedkd2013.tif',format='GTiff',overwrite=T)
 
+writeRaster(crop(dhdt_res2,r3Extent) - crop(modmassloss,r3Extent),path&'\\ModelOutput\\spatialResults\\masslosserror_variablekd2013.tif',format='GTiff',overwrite=T)
+writeRaster(crop(dhdt_res2,r3Extent) - crop(modmasslossfixcond,r3Extent),path&'\\ModelOutput\\spatialResults\\masslosserror_fixedkd2013.tif',format='GTiff',overwrite=T)
+
+
 writeRaster(crop(modmasslossSD/modmassloss*100,r3Extent),path&'\\ModelOutput\\spatialResults\\errorpercent2013.tif',format='GTiff',overwrite=T)
 writeRaster(crop(modCond,r3Extent),path&'\\ModelOutput\\spatialResults\\modCond2013.tif',format='GTiff',overwrite=T)
 writeRaster(crop(debThick,r3Extent),path&'\\ModelOutput\\spatialResults\\thickness2013.tif',format='GTiff',overwrite=T)
@@ -1002,9 +1006,13 @@ binnedresults %>%
 ggplot(aes(y = bin_dist, x = V3,fill=factor(type),colour = factor(type))) +
   geom_boxplot(outlier.colour = NULL) + 
   theme_bw() + 
+
   scale_y_discrete(breaks=seq(31233,31247,1),labels=seq(100,1500,100),position = "right") +
   labs(x = expression(paste("mass loss [m]")), y = "distance to terminus [m]") +
-  theme(legend.position="none")
+  scale_fill_manual(values = c("red", "green","blue"),
+                    labels = expression("fix", "var","obs")) +
+  theme(legend.position = c(.85, .50), legend.title = element_blank())+
+  guides(col = FALSE)
 dev.off()
 
 thickQuantiles <- quantile(debThick[],probs = seq(0,1,0.10),na.rm=T)
@@ -1029,9 +1037,13 @@ thinDeb <- which(!is.na(match(abs(debThick[ModelRunSeries]-thickQuantiles[2]),so
 midDeb <- which(!is.na(match(abs(debThick[ModelRunSeries]-thickQuantiles[6]),sort(abs(debThick[ModelRunSeries]-thickQuantiles[6]))[1:10])))
 higDeb <- which(!is.na(match(abs(debThick[ModelRunSeries]-thickQuantiles[10]),sort(abs(debThick[ModelRunSeries]-thickQuantiles[10]))[1:10])))
 
-permelt_low <- rowMeans(tothourlymelt[,higDeb])
-permelt_mid <- rowMeans(tothourlymelt[,midDeb])
-permelt_hig <- rowMeans(tothourlymelt[,thinDeb])
+thinDeb <- which(debThick[ModelRunSeries]<0.5)
+midDeb <- which(debThick[ModelRunSeries]>=0.5&debThick[ModelRunSeries]<1)
+higDeb <- which(debThick[ModelRunSeries]>=1)
+
+permelt_low <- rowMeans(tothourlymelt[,higDeb],na.rm=T)
+permelt_mid <- rowMeans(tothourlymelt[,midDeb],na.rm=T)
+permelt_hig <- rowMeans(tothourlymelt[,thinDeb],na.rm=T)
 
 timXAxis <- as.numeric(EBCoreInput$timeline_str)
 daterange=c(as.POSIXct(timXAxis[1]-17*3600*24,origin='1970-01-01'), as.POSIXct(timXAxis[length(timXAxis)]-17*3600*24,origin='1970-01-01'))
@@ -1040,28 +1052,28 @@ library(RColorBrewer)
 png(file=path_figs&'\\climateforcingmelt.png', res = 160,width=1800,height=900)
 par(mar=c(3,7,2,5),cex.lab=1.2,cex.axis=1.2)
 layout(matrix(c(1,1), nrow = 1, ncol = 1, byrow = FALSE))
-plot(timXAxis,EBCoreInput$T_a-273.15,col=brewer.pal(3, 'Reds')[3],type='l',lwd=1,ylim=c(-15,15),axes = F, xlab = "", ylab = "")
+plot(timXAxis,EBCoreInput$T_a-273.15,col=brewer.pal(3, 'Reds')[3],type='l',lwd=2,ylim=c(-15,15),axes = F, xlab = "", ylab = "")
 axis(side=4,at = seq(0,20,5),labels=seq(0,20,5), col=brewer.pal(3, 'Reds')[3],col.axis=brewer.pal(3, 'Reds')[3])
 axis.POSIXct(1, at=seq(daterange[1], daterange[2], by="month"),labels=format(seq(daterange[1], daterange[2], by="month"),"%b"), format="%b")
 
 mtext(text=expression('                                   T'['air']~~'[°C]'), side=4,line=3, col=brewer.pal(3, 'Reds')[3],cex=1.2)
 abline(h=seq(0,20,5),v=seq(daterange[1], daterange[2], by="month"),col='grey')
 par(new = TRUE)
-plot(timXAxis,EBCoreInput$SWin,xaxt='n',col=brewer.pal(3, 'Greys')[2],type='l',lwd=1,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
+plot(timXAxis,EBCoreInput$SWin,xaxt='n',col=brewer.pal(3, 'Greys')[2],type='l',lwd=2,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
 abline(h=seq(0,1000,200),v=seq(daterange[1], daterange[2], by="month"),col='grey')
 axis(side=4,at = seq(0,1000,200),labels=seq(0,1000,200), col=brewer.pal(3, 'Greys')[3],col.axis=brewer.pal(3, 'Greys')[3])
 mtext(text=expression('SW/LW'['in']~~'[W '~ m^{-2}~ ']                                      '), side=4,line=3, col=brewer.pal(3, 'Greys')[3],cex=1.2)
 
 par(new = TRUE)
-plot(timXAxis,EBCoreInput$LWin,xaxt='n',col=brewer.pal(3, 'Greys')[3],type='l',lwd=1,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
+plot(timXAxis,EBCoreInput$LWin,xaxt='n',col=brewer.pal(3, 'Greys')[3],type='l',lwd=2,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
 
 
 par(new = TRUE)
-plot(timXAxis,permelt_hig*100*24,xaxt='n',type='l',ylim=c(0,1.8),col=brewer.pal(3, 'Blues')[2],lwd=1.5,yaxt='n',ylab='')
+plot(timXAxis,permelt_hig*100*24,xaxt='n',type='l',ylim=c(0,1.8),col=brewer.pal(3, 'Blues')[3],lwd=1.5,yaxt='n',ylab='')
 axis(side=2,at = seq(0,1.8,0.1),labels=seq(0,1.8,0.1), col=brewer.pal(3, 'Blues')[3],col.axis=brewer.pal(3, 'Blues')[3])
 mtext(text=expression('melt [cm w.e.'~ d^{-1}~ ']'), side=2,line=3, col=brewer.pal(3, 'Blues')[3],cex=1.2)
-points(timXAxis,permelt_mid*100*24,type='l',col=brewer.pal(3, 'Blues')[3],lwd=1.5)
-points(timXAxis,permelt_low*100*24,type='l',col=brewer.pal(3, 'Blues')[2],lwd=0.5)
+points(timXAxis,permelt_mid*100*24,type='l',col=brewer.pal(6, 'Blues')[6],lwd=3.5)
+points(timXAxis,permelt_low*100*24,type='l',col=brewer.pal(3, 'Blues')[3],lwd=1.5)
 dev.off()
 
 
@@ -1069,7 +1081,7 @@ focalTime <- seq(500,1000,1)
 png(file=path_figs&'\\climateforcingmelt_focus.png', res = 160,width=1300,height=900)
 par(mar=c(3,7,2,5),cex.lab=1.2,cex.axis=1.2)
 layout(matrix(c(1,1), nrow = 1, ncol = 1, byrow = FALSE))
-plot(timXAxis[focalTime],EBCoreInput$T_a[focalTime]-273.15,col=brewer.pal(3, 'Reds')[3],type='l',lwd=1,ylim=c(-15,15),axes = F, xlab = "", ylab = "")
+plot(timXAxis[focalTime],EBCoreInput$T_a[focalTime]-273.15,col=brewer.pal(3, 'Reds')[3],type='l',lwd=2,ylim=c(-15,15),axes = F, xlab = "", ylab = "")
 axis(side=4,at = seq(0,20,5),labels=seq(0,20,5), col=brewer.pal(3, 'Reds')[3],col.axis=brewer.pal(3, 'Reds')[3])
 axis.POSIXct(1, at=seq(daterange[1], daterange[2], by="week"),labels=format(seq(daterange[1], daterange[2], by="week"),"%d%b"), format="%d%b")
 
@@ -1077,22 +1089,22 @@ mtext(text=expression('                                   T'['air']~~'[°C]'), si
 abline(h=seq(0,20,5),v=seq(daterange[1], daterange[2], by="week"),col='grey')
 
 par(new = TRUE)
-plot(timXAxis[focalTime],EBCoreInput$SWin[focalTime],xaxt='n',col=brewer.pal(3, 'Greys')[2],type='l',lwd=1,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
+plot(timXAxis[focalTime],EBCoreInput$SWin[focalTime],xaxt='n',col=brewer.pal(3, 'Greys')[2],type='l',lwd=2,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
 axis(side=4,at = seq(0,1000,200),labels=seq(0,1000,200), col=brewer.pal(3, 'Greys')[3],col.axis=brewer.pal(3, 'Greys')[3])
 mtext(text=expression('SW/LW'['in']~~'[W '~ m^{-2}~ ']                                      '), side=4,line=3, col=brewer.pal(3, 'Greys')[3],cex=1.2)
 abline(h=seq(0,1000,200),v=seq(daterange[1], daterange[2], by="week"),col='grey')
 
 par(new = TRUE)
-plot(timXAxis[focalTime],EBCoreInput$LWin[focalTime],xaxt='n',col=brewer.pal(3, 'Greys')[3],type='l',lwd=1,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
+plot(timXAxis[focalTime],EBCoreInput$LWin[focalTime],xaxt='n',col=brewer.pal(3, 'Greys')[3],type='l',lwd=2,ylim=c(0,2400),axes = F, xlab = "", ylab = "")
 
 
 par(new = TRUE)
-plot(timXAxis[focalTime],permelt_hig[focalTime]*100*24,xaxt='n',type='l',ylim=c(0,1.8),col=brewer.pal(3, 'Blues')[2],lwd=1.5,yaxt='n',ylab='')
+plot(timXAxis[focalTime],permelt_hig[focalTime]*100*24,xaxt='n',type='l',ylim=c(0,1.8),col=brewer.pal(3, 'Blues')[3],lwd=1.5,yaxt='n',ylab='')
 axis(side=2,at = seq(0,1.8,0.1),labels=seq(0,1.8,0.1), col=brewer.pal(3, 'Blues')[3],col.axis=brewer.pal(3, 'Blues')[3])
 mtext(text=expression('melt [cm w.e.'~ d^{-1}~ ']'), side=2,line=3, col=brewer.pal(3, 'Blues')[3],cex=1.2)
 
-points(timXAxis[focalTime],permelt_mid[focalTime]*100*24,type='l',col=brewer.pal(3, 'Blues')[3],lwd=1.5)
-points(timXAxis[focalTime],permelt_low[focalTime]*100*24,type='l',col=brewer.pal(3, 'Blues')[2],lwd=0.5)
+points(timXAxis[focalTime],permelt_mid[focalTime]*100*24,type='l',col=brewer.pal(6, 'Blues')[6],lwd=3.5)
+points(timXAxis[focalTime],permelt_low[focalTime]*100*24,type='l',col=brewer.pal(3, 'Blues')[3],lwd=1.5)
 dev.off()
 
 diumeltlow <- diuCyc(percmelt[,2]*100*24,EBCoreInput$timeline_str)
@@ -1177,18 +1189,18 @@ par(mar=c(4,7,2,5),cex.lab=1.2,cex.axis=1.2)
 layout(matrix(c(1,1), nrow = 1, ncol = 1, byrow = FALSE))
 plot(lagMatrix[,2],lagMatrix[,1],col=brewer.pal(3, 'Greys')[1],xlim=c(0,36),ylim=c(0,2.5), ylab = "debris thickness [m]", xlab = "lag [h]")
 points(lagMatrix[,3],lagMatrix[,1],col=brewer.pal(3, 'Greys')[2])
-points(lagMatrixplot[,2],lagMatrixplot[,1],col=brewer.pal(3, 'Reds')[1])
-points(lagMatrixplot[,3],lagMatrixplot[,1],col=brewer.pal(3, 'Reds')[2])
-abline(regrsT)
-abline(regrsS)
+points(lagMatrixplot[,2],lagMatrixplot[,1],col=brewer.pal(3, 'Blues')[3])
+points(lagMatrixplot[,3],lagMatrixplot[,1],col=brewer.pal(3, 'Reds')[3])
+abline(regrsT,col = brewer.pal(3, 'Blues')[3],lwd=2)
+abline(regrsS,col = brewer.pal(3, 'Reds')[3],lwd=2)
 grid(NULL,NULL)
-legend('topleft',c('air temperature', 'solar radiation'),pch=1,col=c(brewer.pal(3, 'Reds')[1],brewer.pal(3, 'Reds')[2]),bty='n')
+legend('topleft',c('air temperature', 'solar radiation'),pch=1,col=c(brewer.pal(3, 'Blues')[3],brewer.pal(3, 'Reds')[3]),bty='n')
 dev.off()
 
 png(file=path_figs&'\\acf_temp.png', res = 160,width=1200,height=500)
 par(mar=c(4,7,2,5),cex.lab=1.2,cex.axis=1.2)
 layout(matrix(c(1,1), nrow = 1, ncol = 1, byrow = FALSE))
-xyccf <- ccf(tothourlymelt[,200],actualTa[,200],lag.max=37,xlab='lag',ylab = 'CCF',main='',xlim=c(0,36),ylim = c(-0.6,0.8),col=brewer.pal(3, 'Reds')[1],lwd=3)
+xyccf <- ccf(tothourlymelt[,200],actualTa[,200],lag.max=37,xlab='lag',ylab = 'CCF',main='',xlim=c(0,36),ylim = c(-0.6,0.8),col=brewer.pal(3, 'Blues')[3],lwd=3)
 grid(NULL,NULL)
 dev.off()
 
@@ -1384,7 +1396,7 @@ debThick[ModelRunSeries][thick_1]
 debThick[ModelRunSeries][thick_2]
 
 png(file=path_figs&'\\indexmodel_hourly.png', res = 160,width=900,height=900)
-par(mar=c(2,4,1,1),cex.lab=1,cex.axis=1)
+par(mar=c(4,6,1,1),cex.lab=1.5,cex.axis=1.5)
 layout(matrix(c(1,2,3), nrow = 3, ncol = 1, byrow = T))
 
 timStart <- 457
@@ -1394,15 +1406,15 @@ daterange <- EBCoreInput$timeline_str[seq(timStart,timEnd,1)]
 
 plot(daterange,tothourlymelt_fixedkd[timStart:timEnd,thick_1]*1000,type='l',lwd=1.5,ylim=c(0,1.5),yaxt='n',xaxt='n',ylab='',xlab='',col=brewer.pal(3, 'Greys')[3])
 points(daterange,paramsTI[1]*debThick[ModelRunSeries[thick_1]]^paramsTI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
-points(daterange,paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_1]]*paramsETI[4]) * actualSW[(timStart-round(lag_S*debThick[ModelRunSeries[thick_1]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_1]]),thick_1]* (1-0.13),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[3])
+points(daterange,paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_1]]*paramsETI[4]) * actualSW[(timStart-round(lag_S*debThick[ModelRunSeries[thick_1]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_1]]),thick_1]* (1-0.13),type='l',lwd=1.5,col=brewer.pal(6, 'Reds')[6])
 
-points(daterange,tothourlymelt_fixedkd[timStart:timEnd,thick_2]*1000,type='l',lwd=1.5,ylim=c(0,1),col=brewer.pal(3, 'Greys')[3])
-points(daterange,paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
-points(daterange,paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13),type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+points(daterange,tothourlymelt_fixedkd[timStart:timEnd,thick_2]*1000,type='l',lwd=1.5,lty = 2, ylim=c(0,1),col=brewer.pal(3, 'Greys')[3])
+points(daterange,paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15),type='l',lty = 2,lwd=1.5,col=brewer.pal(6, 'Blues')[5])
+points(daterange,paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13),type='l',lty = 2,lwd=1.5,col=brewer.pal(6, 'Reds')[6])
 axis.POSIXct(1, at=seq(daterange[1], daterange[length(daterange)], by="day"),labels=format(seq(daterange[1], daterange[length(daterange)], by="day"),"%d"), format="%d")
 axis(side=2,at = seq(0,1.5,0.25),labels=seq(0,1.5,0.25), col='black',col.axis='black')
 
-mtext(text=expression('melt [mm w.e.'~ h^{-1}~ ']'), side=2,line=2, col='black',cex=1)
+mtext(text=expression('melt [mm w.e.'~ h^{-1}~ ']'), side=2,line=3, col='black',cex=1)
 abline(h=seq(0,1.5,0.25),v=seq(daterange[1], daterange[length(daterange)], by="day"),col='grey')
 
 timStart <- 37
@@ -1417,37 +1429,34 @@ ETI_diu <- diuCyc(paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(a
 
 plot(seq(1,24,1),meas_diu[,2],type='l',ylim=c(0,1),yaxt='n',xaxt='n',ylab='',xlab='',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
 points(seq(1,24,1),TI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
-points(seq(1,24,1),ETI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+points(seq(1,24,1),ETI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Reds')[6])
 #axis.POSIXct(1, at=seq(1, 24,1),labels=)
 
 meas_diu <- diuCyc(tothourlymelt_fixedkd[,thick_2]*1000,daterange)
 TI_diu <- diuCyc(paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15),daterange)
 ETI_diu <- diuCyc(paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13),daterange)
 
-points(seq(1,24,1),meas_diu[,2],type='l',ylim=c(0,1),yaxt='n',xaxt='n',ylab='',xlab='',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
-points(seq(1,24,1),TI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
-points(seq(1,24,1),ETI_diu[,2],type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+points(seq(1,24,1),meas_diu[,2],type='l',lty = 2,ylim=c(0,1),yaxt='n',xaxt='n',ylab='',xlab='',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
+points(seq(1,24,1),TI_diu[,2],type='l',lty = 2,lwd=1.5,col=brewer.pal(6, 'Blues')[5])
+points(seq(1,24,1),ETI_diu[,2],type='l',lty = 2,lwd=1.5,col=brewer.pal(6, 'Reds')[6])
 axis(1, at=seq(0, 23,4),labels=seq(0, 23,4))
 abline(h=seq(0,1,0.2),v=seq(0, 23,2),col='grey')
 
 axis(side=2,at = seq(0,1,0.2),labels=seq(0,1,0.2), col='black',col.axis='black')
-mtext(text=expression('melt [mm w.e.'~ h^{-1}~ ']'), side=2,line=2, col='black',cex=1)
+mtext(text=expression('melt [mm w.e.'~ h^{-1}~ ']'), side=2,line=3, col='black',cex=1)
 
 plot(daterange,cumsum(tothourlymelt_fixedkd[,thick_1]),type='l',ylim=c(0,2.250),yaxt='n',xaxt='n',ylab='',xlab='',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
 points(daterange,cumsum(paramsTI[1]*debThick[ModelRunSeries[thick_1]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15))/1000,type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[5])
-points(daterange,cumsum(paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_1]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_1]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_1]]),thick_1]* (1-0.13))/1000,type='l',lwd=1.5,col=brewer.pal(6, 'Blues')[6])
+points(daterange,cumsum(paramsETI[1]*debThick[ModelRunSeries[thick_1]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_1]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_1]])),thick_1]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_1]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_1]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_1]]),thick_1]* (1-0.13))/1000,type='l',lwd=1.5,col=brewer.pal(6, 'Reds')[6])
 
-points(daterange,cumsum(tothourlymelt_fixedkd[,thick_2]),type='l',lwd=1.5,col=brewer.pal(3, 'Greys')[3])
-points(daterange,cumsum(paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15))/1000,type='l',lwd=2,col=brewer.pal(6, 'Blues')[5])
-points(daterange,cumsum(paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13))/1000,type='l',lwd=2,col=brewer.pal(6, 'Blues')[3])
+points(daterange,cumsum(tothourlymelt_fixedkd[,thick_2]),type='l',lty = 2,lwd=1.5,col=brewer.pal(3, 'Greys')[3])
+points(daterange,cumsum(paramsTI[1]*debThick[ModelRunSeries[thick_2]]^paramsTI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15))/1000,type='l',lty = 2,lwd=2,col=brewer.pal(6, 'Blues')[5])
+points(daterange,cumsum(paramsETI[1]*debThick[ModelRunSeries[thick_2]]^paramsETI[2]*(actualTa_shift[(timStart-round(lag_T*debThick[ModelRunSeries[thick_2]])):(timEnd-round(lag_T*debThick[ModelRunSeries[thick_2]])),thick_2]-273.15) + paramsETI[3] * exp(debThick[ModelRunSeries[thick_2]]*paramsETI[4]) * actualSW_shift[(timStart-round(lag_S*debThick[ModelRunSeries[thick_2]])):round(timEnd-lag_S*debThick[ModelRunSeries[thick_2]]),thick_2]* (1-0.13))/1000,type='l',lty = 2,lwd=2,col=brewer.pal(6, 'Reds')[6])
 axis.POSIXct(1, at=seq(daterange[1], daterange[length(daterange)], by="month"),labels=format(seq(daterange[1], daterange[length(daterange)], by="month"),"%d%b"), format="%d%b")
 axis(side=2,at = seq(0,2.5,0.5),labels=seq(0,2.500,0.500), col='black',col.axis='black')
 
-mtext(text=expression('melt [m w.e.]'), side=2,line=2, col='black',cex=1)
+mtext(text=expression('melt [m w.e.]'), side=2,line=3, col='black',cex=1)
 abline(h=seq(0,2.5,0.5),v=seq(daterange[1], daterange[length(daterange)], by="month"),col='grey')
-legend('topleft',c('EB', 'TI', 'ETI'),lty=1,lwd=1.5,col=c(brewer.pal(3, 'Greys')[3],brewer.pal(6, 'Blues')[5],brewer.pal(6, 'Blues')[3]),bty='n')
+legend('topleft',c('EB', 'TI', 'ETI'),lty=1,lwd=1.5,col=c(brewer.pal(3, 'Greys')[3],brewer.pal(6, 'Blues')[5],brewer.pal(6, 'Reds')[6]),bty='n')
 
 dev.off()
-
-
-plot(crop(dhdt_res,r3Extent)-crop(TI_raster,r3Extent),zlim=c(-0.5,0.5))

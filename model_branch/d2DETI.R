@@ -278,7 +278,7 @@ StatsTI_2013 <- TSStatistics(dhdt_res[],meltCum[])
 
 dhdt_2013 <- dhdt_res
 modmelt_2013 <- meltCum
-
+days_2013 <- (xEnd - xStart)/3600/24
 
 
 ########################
@@ -507,7 +507,7 @@ StatsTI_201516 <- TSStatistics(dhdt_res[],meltCum[])
 
 dhdt_201516 <- dhdt_res
 modmelt_201516 <- meltCum
-
+days_201516 <- (xEnd - xStart)/3600/24
 
 
 
@@ -730,7 +730,7 @@ StatsTI_2016 <- TSStatistics(dhdt_res[],meltCum[])
 
 dhdt_2016 <- dhdt_res
 modmelt_2016 <- meltCum
-
+days_2016 <- (xEnd - xStart)/3600/24
 
 
 
@@ -921,7 +921,7 @@ for(i in 1:length(ID_pix)){
   
   meltVec <- TF1 * debThick[ID_pix[i]]^TF2 * lapsedT
   meltVec[lapsedT<=0] <- 0 
-  meltCum[ID_pix[i]] <- cumsum(meltVec)[length(lapsedT)] / 0.915 / 1000
+  meltCum[ID_pix[i]] <- cumsum(meltVec)[length(lapsedT)] / 0.916 / 1000
   
 }
 
@@ -956,3 +956,94 @@ StatsTI_201718 <- TSStatistics(dhdt_res[],meltCum[])
 
 dhdt_201718 <- dhdt_res
 modmelt_201718 <- meltCum
+days_201718 <- (xEnd - xStart)/3600/24
+
+
+png(file=path_figs&'\\Distributed_Boxplots_TIModel_summer.png', res = 300,width=900,height=1800)
+par(mar=c(3,5,1,2),mai = c(0.6, 0.1, 0.1, 0.1),cex.lab = 1.5, cex.axis = 1.5)
+#par(pty="s")
+layout(matrix(c(1,2,3), nrow = 1, ncol = 3, byrow = T))
+
+plot.new()
+boxplot(cbind(dhdt_2013[],modmelt_2013[]),ylim=c(0,5),xaxt='n',ylab = 'mass loss [m]',col=c('grey','white'))
+mtext(text=expression('mass loss [m]'), side=2,line=3, col='black',cex=1)
+boxplot(cbind(dhdt_2016[],modmelt_2016[]),ylim=c(0,5),xaxt='n',yaxt='n',col=c('grey','white'))
+
+dev.off()
+
+png(file=path_figs&'\\Distributed_Boxplots_TIModel_winter.png', res = 300,width=900,height=1800)
+par(mar=c(3,5,1,2),mai = c(0.6, 0.1, 0.1, 0.1),cex.lab = 1.5, cex.axis = 1.5)
+#par(pty="s")
+layout(matrix(c(1,2,3), nrow = 1, ncol = 3, byrow = T))
+
+plot.new()
+boxplot(cbind(dhdt_201516[],modmelt_201516[]),ylim=c(0,2),xaxt='n',col=c('grey','white'))
+boxplot(cbind(dhdt_201718[],modmelt_201718[]),ylim=c(0,2),yaxt='n',xaxt='n',col=c('grey','white'))
+dev.off()
+
+png(file=path_figs&'\\Distributed_Boxplots_TIModel_summer2013_violin.png', res = 300,width=900,height=1800)
+
+par(mar=c(3,5,1,2),mai = c(0.6, 0.1, 0.1, 0.1),cex.lab = 2, cex.axis = 2)
+
+factVio <- as.factor(c(rep(1, length(dhdt_2013)),rep(2,length(modmelt_2013[]))))
+factCol <- as.factor(c(rep('UAV', length(dhdt_2013)),rep('dTI',length(modmelt_2013[]))))
+voPl <- data.frame(factVio,c(dhdt_2013[]/days_2013*365,modmelt_2013[]/days_2013*365),factCol)
+voPl <- voPl[-which(is.na(voPl[,2])),]
+names(voPl)[1] <- 'type'
+names(voPl)[2] <- 'ml'
+p <- ggplot(voPl,aes(x=type,y=ml,fill=factCol)) + 
+  geom_violin(trim=F) + geom_boxplot(width=0.1) + scale_fill_grey() +theme_classic() + ylim(0,11.5)
+p + labs( y = expression('melt [m '~ yr^{-1}~ ']')) + scale_fill_grey(start=0.6,end=0.9) + theme(text = element_text(size=18)) +  theme(legend.position = "none") + theme(axis.title.x = element_blank(),axis.ticks = element_blank(),axis.text.x=element_blank())
+
+dev.off()
+
+png(file=path_figs&'\\Distributed_Boxplots_TIModel_summer2016_violin.png', res = 300,width=900,height=1800)
+
+par(mar=c(3,5,1,2),mai = c(0.6, 0.1, 0.1, 0.1),cex.lab = 2, cex.axis = 2)
+
+factVio <- as.factor(c(rep(1, length(dhdt_2016)),rep(2,length(modmelt_2016[]))))
+factCol <- as.factor(c(rep('UAV', length(dhdt_2016)),rep('dTI',length(modmelt_2016[]))))
+voPl <- data.frame(factVio,c(dhdt_2016[]/days_2016*365,modmelt_2016[]/days_2016*365),factCol)
+voPl <- voPl[-which(is.na(voPl[,2])),]
+names(voPl)[1] <- 'type'
+names(voPl)[2] <- 'ml'
+p <- ggplot(voPl,aes(x=type,y=ml,fill=factCol)) + 
+  geom_violin(trim=F) + geom_boxplot(width=0.1) + scale_fill_grey() +theme_classic() + ylim(0,11.5)
+p + labs( y = "") + scale_fill_grey(start=0.6,end=0.9) + theme(text = element_text(size=18)) +  theme(legend.position = "none") + theme(axis.title.x = element_blank(),axis.ticks = element_blank(),axis.text.x=element_blank())
+
+dev.off()
+
+
+
+png(file=path_figs&'\\Distributed_Boxplots_TIModel_winter201516_violin.png', res = 300,width=900,height=1800)
+
+par(mar=c(3,5,1,2),mai = c(0.6, 0.1, 0.1, 0.1),cex.lab = 2, cex.axis = 2)
+
+factVio <- as.factor(c(rep(1, length(dhdt_201516)),rep(2,length(modmelt_201516[]))))
+factCol <- as.factor(c(rep('UAV', length(dhdt_201516)),rep('dTI',length(modmelt_201516[]))))
+voPl <- data.frame(factVio,c(dhdt_201516[]/days_201516*365,modmelt_201516[]/days_201516*365),factCol)
+voPl <- voPl[-which(is.na(voPl[,2])),]
+names(voPl)[1] <- 'type'
+names(voPl)[2] <- 'ml'
+p <- ggplot(voPl,aes(x=type,y=ml,fill=factCol)) + 
+  geom_violin(trim=F) + geom_boxplot(width=0.1) + scale_fill_grey() +theme_classic() + ylim(0,11.5)
+p + labs( y = "") + scale_fill_grey(start=0.6,end=0.9) + theme(text = element_text(size=18)) +  theme(legend.position = "none") + theme(axis.title.x = element_blank(),axis.ticks = element_blank(),axis.text.x=element_blank())
+
+dev.off()
+
+png(file=path_figs&'\\Distributed_Boxplots_TIModel_winter201718_violin.png', res = 300,width=900,height=1800)
+
+par(mar=c(3,5,1,2),mai = c(0.6, 0.1, 0.1, 0.1),cex.lab = 2, cex.axis = 2)
+
+factVio <- as.factor(c(rep(1, length(dhdt_201718)),rep(2,length(modmelt_201718[]))))
+factCol <- as.factor(c(rep('UAV', length(dhdt_201718)),rep('dTI',length(modmelt_201718[]))))
+voPl <- data.frame(factVio,c(dhdt_201718[]/days_201718*365,modmelt_201718[]/days_201718*365),factCol)
+voPl <- voPl[-which(is.na(voPl[,2])),]
+names(voPl)[1] <- 'type'
+names(voPl)[2] <- 'ml'
+p <- ggplot(voPl,aes(x=type,y=ml,fill=factCol)) + 
+  geom_violin(trim=F) + geom_boxplot(width=0.1) + scale_fill_grey() +theme_classic() + ylim(0,11.5)
+p + labs( y = "") + scale_fill_grey(start=0.6,end=0.9) + theme(text = element_text(size=18)) +  theme(legend.position = "none") + theme(axis.title.x = element_blank(),axis.ticks = element_blank(),axis.text.x=element_blank())
+
+dev.off()
+
