@@ -37,31 +37,32 @@
 
 
 dTImod <- function(modType,Tdata,timFrame,debThick,ElevD,TIparam,SWdata,alpha){
-  
-  #x <- tryCatch(
-  #  {
-  #    if(timFrame[1] -  Tdata[1,1]>=3600*TIparam[1])
-  #  },
-  #  error = function(e){
-  #    bar()
-  #  }
-  #)
+
+  T_thres <- 0        # temperature threshold for melt on clean ice, assumed for now, should become a variable that can be edited
+  TF_clean <- 4.74    # Temperature factor created from data fro Yala (weighted based on the available days, using only TF>0), based on Litt et al. 2019
+  #browser()
   idIN <- which(Tdata[,1]==timFrame[1])
   idOUT <- which(Tdata[,1]==timFrame[2])
+ 
   shiftTim <- seq(idIN - round(TIparam[1] *debThick), idOUT - round(TIparam[1] *debThick),1)
   
   lapsedT <- Tdata[shiftTim,2] +
     (ElevD[2] - ElevD[1]) * Tdata[shiftTim,3] +
     (ElevD[3] - ElevD[2]) * Tdata[shiftTim,4]
-  switch('dTI'){
+
+  # Catch locations with no debris and calculate clean ice melt
+  if(debThick<=0.05){
+    melt_mmwe <- TF_clean * (lapsedT - T_thres)}
+    else{
+  switch(modType,
+         'dTI' = {
     melt_mmwe <- TIparam[2] * debThick^TIparam[3] * lapsedT
-  }
-  switch('dETI'){
+      },'dETI' = {
     shiftedSW <- SWdata[shiftTim,2]
     melt_mmwe <- TIparam[2] * debThick^TIparam[3] * lapsedT + TIparam[4] * exp(debThick*TIparam[5]) * shiftedSW * (1-alpha)
-  }
-  
-  
-  melt_mmwe[meltmmwe<0] <- 0
+      })
+    }
+  #browser()
+  melt_mmwe[melt_mmwe<0] <- 0
   return(melt_mmwe)  
 }
