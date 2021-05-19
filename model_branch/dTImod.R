@@ -49,7 +49,7 @@ dTImod <- function(modType,Tdata,timFrame,debThick,ElevD,TIparam,SWdata,alpha){
 
   #browser()
   # Catch locations with no debris and calculate clean ice melt
-  if(debThick<=0.05){
+  if(debThick<=0.02){
     lapsedT <- Tdata[shiftTim,2] +
       (ElevD[3] - ElevD[1]) * Tdata[shiftTim,3]
     melt_mmwe <- TF_clean * (lapsedT - T_thres)}
